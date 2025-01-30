@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard - Charity Donation Platform</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+      <div class="container">
+        <a class="navbar-brand" href="/dashboard.html">Charity Platform</a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarNav"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav me-auto">
+            <li class="nav-item">
+              <a class="nav-link active" href="/dashboard.html">Dashboard</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/charities.html">Charities</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#" id="profileLink">Profile</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#" id="donationsLink"
+                >Donation History</a
+              >
+            </li>
+            <li class="nav-item admin-only" style="display: none">
+              <a class="nav-link" href="/admin-dashboard.html">Admin Panel</a>
+            </li>
+          </ul>
+          <button class="btn btn-light" id="logoutBtn">Logout</button>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container mt-4">
+      <div class="row">
+        <div class="col-md-8">
+          <h2>Welcome, <span id="userName"></span>!</h2>
+
+          <div id="dashboardView" class="card mt-4">
+            <div class="card-body">
+              <h5 class="card-title">Recent Activities</h5>
+              <p>
+                Welcome to your dashboard! You can view your recent activities
+                here.
+              </p>
+            </div>
+          </div>
+
+          <div id="profileView" class="mt-3" style="display: none">
+            <h5 class="card-title">Your Profile</h5>
+            <form id="profileForm" class="mt-3">
+              <div class="mb-3">
+                <label for="name" class="form-label">Full Name</label>
+                <input type="text" class="form-control" id="name" required />
+              </div>
+              <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" class="form-control" id="email" required />
+              </div>
+              <div class="mb-3">
+                <label for="currentPassword" class="form-label"
+                  >Current Password (required for email/password update)</label
+                >
+                <input
+                  type="password"
+                  class="form-control"
+                  id="currentPassword"
+                />
+              </div>
+              <div class="mb-3">
+                <label for="newPassword" class="form-label"
+                  >New Password (leave blank to keep current)</label
+                >
+                <input type="password" class="form-control" id="newPassword" />
+              </div>
+              <button type="submit" class="btn btn-primary">
+                Update Profile
+              </button>
+            </form>
+          </div>
+
+          <div id="donationsView" class="mt-3" style="display: none">
+            <h5>Your Donations</h5>
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Charity</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Receipt</th>
+                  </tr>
+                </thead>
+                <tbody id="donationsTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // Check if user is authenticated
+      const token = localStorage.getItem("token");
+      if (!token) {
+        window.location.href = "/login.html";
+      }
+
+      // Handle navigation
+      document.getElementById("profileLink").addEventListener("click", (e) => {
+        e.preventDefault();
+        showView("profile");
+      });
+
+      document
+        .getElementById("donationsLink")
+        .addEventListener("click", (e) => {
+          e.preventDefault();
+          showView("donations");
+          fetchDonationHistory();
+        });
+
+      // Handle dashboard link
+      document
+        .querySelector('a[href="/dashboard.html"]')
+        .addEventListener("click", (e) => {
+          e.preventDefault();
+          showView("dashboard");
+        });
+
+      // Fetch user profile
+      async function fetchProfile() {
+        try {
+          const response = await fetch(
+            "http://localhost:3000/api/users/profile",
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch profile");
+          }
+
+          const data = await response.json();
+          document.getElementById("userName").textContent = data.name;
+          document.getElementById("name").value = data.name;
+          document.getElementById("email").value = data.email;
+          if (data.isAdmin) {
+            document.querySelector(".admin-only").style.display = "";
+          }
+        } catch (error) {
+          alert("Error fetching profile");
+        }
+      }
+
+      // Update profile
+      document
+        .getElementById("profileForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          try {
+            const formData = {
+              name: document.getElementById("name").value,
+              email: document.getElementById("email").value,
+            };
+
+            const currentPassword =
+              document.getElementById("currentPassword").value;
+            const newPassword = document.getElementById("newPassword").value;
+
+            // Include password fields only if either is provided
+            if (currentPassword || newPassword) {
+              if (!currentPassword) {
+                return alert("Current password is required to update password");
+              }
+              if (!newPassword) {
+                return alert("New password is required to update password");
+              }
+              formData.currentPassword = currentPassword;
+              formData.newPassword = newPassword;
+            }
+
+            const response = await fetch(
+              "http://localhost:3000/api/users/profile",
+              {
+                method: "PUT",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(formData),
+              }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+              throw new Error(data.message || "Failed to update profile");
+            }
+
+            alert("Profile updated successfully");
+            // Clear password fields
+            document.getElementById("currentPassword").value = "";
+            document.getElementById("newPassword").value = "";
+            fetchProfile();
+          } catch (error) {
+            alert(error.message);
+          }
+        });
+
+      // Logout
+      document.getElementById("logoutBtn").addEventListener("click", () => {
+        localStorage.removeItem("token");
+        window.location.href = "/login.html";
+      });
+
+      // Fetch donation history
+      async function fetchDonationHistory() {
+        try {
+          const response = await fetch(
+            "http://localhost:3000/api/donations/history",
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error("Donation history error:", errorData);
+            throw new Error("Failed to fetch donation history");
+          }
+
+          const donations = await response.json();
+          if (!donations || donations.length === 0) {
+            document.getElementById("donationsTable").innerHTML =
+              '<tr><td colspan="5" class="text-center">No donations found</td></tr>';
+            return;
+          }
+          displayDonations(donations);
+        } catch (error) {
+          console.error("Error:", error);
+          alert(error.message);
+        }
+      }
+
+      // Display donations in table
+      function displayDonations(donations) {
+        const tbody = document.getElementById("donationsTable");
+        tbody.innerHTML = "";
+
+        donations.forEach((donation) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${new Date(donation.createdAt).toLocaleDateString()}</td>
+            <td>${donation.Charity.name}</td>
+            <td>₹${donation.amount}</td>
+            <td>
+              <span class="badge ${
+                donation.status === "completed" ? "bg-success" : "bg-warning"
+              }">
+                ${donation.status}
+              </span>
+            </td>
+            <td>
+              ${
+                donation.status === "completed"
+                  ? `<a href="#" 
+                       onclick="downloadReceipt(${donation.id})" 
+                       class="btn btn-sm btn-outline-primary">
+                       Download Receipt
+                     </a>`
+                  : "-"
+              }
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      // Helper function to show/hide views
+      function showView(viewName) {
+        document.getElementById("dashboardView").style.display =
+          viewName === "dashboard" ? "block" : "none";
+        document.getElementById("profileView").style.display =
+          viewName === "profile" ? "block" : "none";
+        document.getElementById("donationsView").style.display =
+          viewName === "donations" ? "block" : "none";
+
+        // Update active tab
+        document.querySelectorAll(".nav-link").forEach((link) => {
+          link.classList.remove("active");
+        });
+        document.getElementById(`${viewName}Link`).classList.add("active");
+      }
+
+      // Initial profile load
+      fetchProfile();
+
+      // Download receipt function
+      async function downloadReceipt(donationId) {
+        try {
+          const response = await fetch(
+            `http://localhost:3000/api/donations/receipt/${donationId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              credentials: "include",
+              cache: "no-cache",
+            }
+          );
+
+          if (!response.ok) {
+            const errorData = await response.text();
+            console.error("Download error:", errorData);
+            throw new Error("Failed to download receipt");
+          }
+
+          const contentType = response.headers.get("content-type");
+          if (!contentType || !contentType.includes("application/pdf")) {
+            console.error("Invalid content type:", contentType);
+            throw new Error("Invalid receipt format");
+          }
+
+          const blob = await response.blob();
+
+          if (blob.size === 0) {
+            throw new Error("Empty receipt file");
+          }
+
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `receipt-${donationId}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        } catch (error) {
+          console.error("Receipt download error:", error);
+          alert(error.message);
+        }
+      }
+    </script>
+  </body>
+</html>

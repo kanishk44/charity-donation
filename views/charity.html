@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Charity Details - Charity Donation Platform</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+      <div class="container">
+        <a class="navbar-brand" href="/dashboard.html">Charity Platform</a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarNav"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav me-auto">
+            <li class="nav-item">
+              <a class="nav-link" href="/dashboard.html">Dashboard</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/charities.html">Charities</a>
+            </li>
+          </ul>
+          <button class="btn btn-light" id="logoutBtn">Logout</button>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container mt-4">
+      <div class="row">
+        <div class="col-md-8">
+          <div class="card">
+            <div class="card-body">
+              <h2 id="charityName" class="card-title"></h2>
+              <div class="mb-4">
+                <span id="charityCategory" class="badge bg-primary me-2"></span>
+                <span id="charityLocation" class="text-muted"></span>
+              </div>
+              <h5>Mission</h5>
+              <p id="charityMission" class="mb-4"></p>
+              <h5>About Us</h5>
+              <p id="charityDescription"></p>
+              <div class="mt-4">
+                <h5>Contact Information</h5>
+                <p>
+                  <strong>Email:</strong> <span id="charityEmail"></span><br />
+                  <strong>Phone:</strong> <span id="charityPhone"></span><br />
+                  <strong>Website:</strong>
+                  <a id="charityWebsite" href="#" target="_blank"></a><br />
+                  <strong>Address:</strong> <span id="charityAddress"></span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">Make a Donation</h5>
+              <form id="donationForm" class="mt-3">
+                <div class="mb-3">
+                  <label for="amount" class="form-label">Amount (INR)</label>
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="amount"
+                    min="1"
+                    required
+                  />
+                </div>
+                <button type="submit" class="btn btn-primary w-100">
+                  Donate Now
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // Check authentication
+      const token = localStorage.getItem("token");
+      if (!token) {
+        window.location.href = "/login.html";
+      }
+
+      // Get charity ID from URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const charityId = urlParams.get("id");
+
+      if (!charityId) {
+        window.location.href = "/charities.html";
+      }
+
+      // Fetch charity details
+      async function fetchCharityDetails() {
+        try {
+          const response = await fetch(
+            `http://localhost:3000/api/charities/${charityId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch charity details");
+          }
+
+          const charity = await response.json();
+          displayCharityDetails(charity);
+        } catch (error) {
+          alert(error.message);
+        }
+      }
+
+      // Display charity details
+      function displayCharityDetails(charity) {
+        document.getElementById("charityName").textContent = charity.name;
+        document.getElementById("charityCategory").textContent =
+          charity.category;
+        document.getElementById(
+          "charityLocation"
+        ).textContent = `${charity.city}, ${charity.state}, ${charity.country}`;
+        document.getElementById("charityMission").textContent = charity.mission;
+        document.getElementById("charityDescription").textContent =
+          charity.description;
+        document.getElementById("charityEmail").textContent = charity.email;
+        document.getElementById("charityPhone").textContent =
+          charity.phone || "Not provided";
+        const websiteLink = document.getElementById("charityWebsite");
+        if (charity.website) {
+          websiteLink.href = charity.website;
+          websiteLink.textContent = charity.website;
+        } else {
+          websiteLink.textContent = "Not provided";
+        }
+        document.getElementById("charityAddress").textContent = charity.address;
+      }
+
+      // Handle donation
+      document
+        .getElementById("donationForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+
+          try {
+            const amount = document.getElementById("amount").value;
+
+            // Create order
+            const orderResponse = await fetch(
+              "http://localhost:3000/api/donations/create-order",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  amount,
+                  charityId,
+                }),
+              }
+            );
+
+            if (!orderResponse.ok) {
+              throw new Error("Failed to create donation order");
+            }
+
+            const orderData = await orderResponse.json();
+
+            // Get Razorpay key
+            const keyResponse = await fetch(
+              "http://localhost:3000/api/donations/razorpay-key",
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+
+            if (!keyResponse.ok) {
+              throw new Error("Failed to fetch payment configuration");
+            }
+
+            const { key } = await keyResponse.json();
+
+            // Initialize Razorpay
+            const options = {
+              key: key, // Securely fetched from backend
+              amount: orderData.amount,
+              currency: orderData.currency,
+              order_id: orderData.orderId,
+              name: "Charity Donation",
+              description: "Thank you for your donation",
+              handler: async function (response) {
+                try {
+                  // Verify payment
+                  const verifyResponse = await fetch(
+                    "http://localhost:3000/api/donations/verify-payment",
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                      },
+                      body: JSON.stringify({
+                        ...response,
+                        charityId,
+                        amount,
+                      }),
+                    }
+                  );
+
+                  if (!verifyResponse.ok) {
+                    const errorData = await verifyResponse.json();
+                    console.error("Payment verification failed:", errorData);
+                    throw new Error("Payment verification failed");
+                  }
+
+                  alert("Thank you for your donation!");
+                  window.location.reload();
+                } catch (error) {
+                  alert(error.message);
+                }
+              },
+            };
+
+            const rzp = new Razorpay(options);
+            rzp.open();
+          } catch (error) {
+            alert(error.message);
+          }
+        });
+
+      // Logout handler
+      document.getElementById("logoutBtn").addEventListener("click", () => {
+        localStorage.removeItem("token");
+        window.location.href = "/login.html";
+      });
+
+      // Initial load
+      fetchCharityDetails();
+    </script>
+  </body>
+</html>

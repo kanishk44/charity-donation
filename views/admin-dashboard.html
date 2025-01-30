@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard - Charity Donation Platform</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+      <div class="container">
+        <a class="navbar-brand" href="/admin-dashboard.html">Admin Dashboard</a>
+        <button class="btn btn-light" id="logoutBtn">Logout</button>
+      </div>
+    </nav>
+
+    <div class="container mt-4">
+      <h2>Admin Dashboard</h2>
+      <div class="row mt-4">
+        <!-- Existing tabs -->
+        <ul class="nav nav-tabs" id="adminTabs">
+          <li class="nav-item">
+            <a class="nav-link active" href="#" id="pendingTab"
+              >Pending Charities</a
+            >
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" id="approvedTab">Approved Charities</a>
+          </li>
+        </ul>
+
+        <!-- View Charity Modal -->
+        <div class="modal fade" id="viewCharityModal" tabindex="-1">
+          <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Charity Details</h5>
+                <button
+                  type="button"
+                  class="btn-close"
+                  data-bs-dismiss="modal"
+                ></button>
+              </div>
+              <div class="modal-body">
+                <div class="row">
+                  <div class="col-md-4">
+                    <img
+                      id="charityLogo"
+                      src=""
+                      alt="Charity Logo"
+                      class="img-fluid mb-3"
+                    />
+                  </div>
+                  <div class="col-md-8">
+                    <h4 id="charityName"></h4>
+                    <p id="charityMission" class="text-muted"></p>
+                    <hr />
+                    <div class="row">
+                      <div class="col-md-6">
+                        <p>
+                          <strong>Email:</strong>
+                          <span id="charityEmail"></span>
+                        </p>
+                        <p>
+                          <strong>Phone:</strong>
+                          <span id="charityPhone"></span>
+                        </p>
+                        <p>
+                          <strong>Address:</strong>
+                          <span id="charityAddress"></span>
+                        </p>
+                      </div>
+                      <div class="col-md-6">
+                        <p>
+                          <strong>Registration Number:</strong>
+                          <span id="charityRegNo"></span>
+                        </p>
+                        <p>
+                          <strong>Status:</strong>
+                          <span id="charityStatus" class="badge"></span>
+                        </p>
+                        <p>
+                          <strong>Joined:</strong>
+                          <span id="charityJoined"></span>
+                        </p>
+                      </div>
+                    </div>
+                    <hr />
+                    <h5>Donation Statistics</h5>
+                    <div class="row">
+                      <div class="col-md-4">
+                        <div class="card bg-light">
+                          <div class="card-body text-center">
+                            <h6>Total Donations</h6>
+                            <h4 id="totalDonations">0</h4>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="col-md-4">
+                        <div class="card bg-light">
+                          <div class="card-body text-center">
+                            <h6>Total Amount</h6>
+                            <h4 id="totalAmount">₹0</h4>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="col-md-4">
+                        <div class="card bg-light">
+                          <div class="card-body text-center">
+                            <h6>Donors</h6>
+                            <h4 id="uniqueDonors">0</h4>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  data-bs-dismiss="modal"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charity listings -->
+        <div class="mt-3">
+          <div id="pendingCharities"></div>
+          <div id="approvedCharities" style="display: none"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // Check if user is authenticated and is admin
+      const token = localStorage.getItem("token");
+      if (!token) {
+        window.location.href = "/login.html";
+      }
+
+      // Initialize modal
+      const viewCharityModal = new bootstrap.Modal(
+        document.getElementById("viewCharityModal")
+      );
+
+      // Handle tab switching
+      document.getElementById("pendingTab").addEventListener("click", (e) => {
+        e.preventDefault();
+        showTab("pending");
+      });
+
+      document.getElementById("approvedTab").addEventListener("click", (e) => {
+        e.preventDefault();
+        showTab("approved");
+      });
+
+      function showTab(status) {
+        // Update tab visibility
+        document.getElementById("pendingCharities").style.display =
+          status === "pending" ? "block" : "none";
+        document.getElementById("approvedCharities").style.display =
+          status === "approved" ? "block" : "none";
+
+        // Update active tab
+        document
+          .getElementById("pendingTab")
+          .classList.toggle("active", status === "pending");
+        document
+          .getElementById("approvedTab")
+          .classList.toggle("active", status === "approved");
+
+        // Fetch charities for the selected tab
+        fetchCharities(status);
+      }
+
+      // Fetch and display charities
+      async function fetchCharities(status) {
+        try {
+          const response = await fetch(
+            `http://localhost:3000/api/charities?status=${status}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch charities");
+          }
+
+          const charities = await response.json();
+          displayCharities(charities, status);
+        } catch (error) {
+          alert(error.message);
+        }
+      }
+
+      // Update charity status
+      async function updateCharityStatus(charityId, newStatus) {
+        try {
+          const response = await fetch(
+            `http://localhost:3000/api/charities/${charityId}/status`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ status: newStatus }),
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error("Failed to update charity status");
+          }
+
+          // Refresh the current tab
+          const currentTab = document
+            .querySelector("#adminTabs .nav-link.active")
+            .id.replace("Tab", "");
+          fetchCharities(currentTab);
+
+          alert(`Charity ${newStatus} successfully`);
+        } catch (error) {
+          alert(error.message);
+        }
+      }
+
+      function displayCharities(charities, status) {
+        const container = document.getElementById(`${status}Charities`);
+        container.innerHTML = "";
+
+        charities.forEach((charity) => {
+          const card = document.createElement("div");
+          card.className = "card mb-3";
+          card.innerHTML = `
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-2">
+                  <img src="${
+                    charity.logo || "default-logo.png"
+                  }" class="img-fluid" alt="${charity.name}">
+                </div>
+                <div class="col-md-7">
+                  <h5 class="card-title">${charity.name}</h5>
+                  <p class="card-text text-muted">${charity.mission}</p>
+                </div>
+                <div class="col-md-3">
+                  <div class="d-grid gap-2">
+                    <button class="btn btn-info btn-sm" onclick="viewCharity(${
+                      charity.id
+                    })">
+                      View Details
+                    </button>
+                    ${
+                      status === "pending"
+                        ? `<button class="btn btn-success btn-sm" onclick="updateCharityStatus(${charity.id}, 'approved')">
+                            Approve
+                          </button>
+                          <button class="btn btn-danger btn-sm" onclick="updateCharityStatus(${charity.id}, 'rejected')">
+                            Reject
+                          </button>`
+                        : ""
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      }
+
+      // View charity details
+      async function viewCharity(charityId) {
+        try {
+          const response = await fetch(
+            `http://localhost:3000/api/charities/${charityId}/details`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch charity details");
+          }
+
+          const charity = await response.json();
+
+          // Update modal content
+          document.getElementById("charityLogo").src =
+            charity.logo || "default-logo.png";
+          document.getElementById("charityName").textContent = charity.name;
+          document.getElementById("charityMission").textContent =
+            charity.mission;
+          document.getElementById("charityEmail").textContent = charity.email;
+          document.getElementById("charityPhone").textContent = charity.phone;
+          document.getElementById("charityAddress").textContent =
+            charity.address;
+          document.getElementById("charityRegNo").textContent =
+            charity.registrationNumber;
+          document.getElementById("charityJoined").textContent = new Date(
+            charity.createdAt
+          ).toLocaleDateString();
+
+          const statusBadge = document.getElementById("charityStatus");
+          statusBadge.textContent = charity.status;
+          statusBadge.className = `badge bg-${
+            charity.status === "approved"
+              ? "success"
+              : charity.status === "pending"
+              ? "warning"
+              : "danger"
+          }`;
+
+          // Update statistics
+          document.getElementById("totalDonations").textContent =
+            charity.stats.totalDonations;
+          document.getElementById(
+            "totalAmount"
+          ).textContent = `₹${charity.stats.totalAmount.toLocaleString()}`;
+          document.getElementById("uniqueDonors").textContent =
+            charity.stats.uniqueDonors;
+
+          viewCharityModal.show();
+        } catch (error) {
+          alert(error.message);
+        }
+      }
+
+      // Logout
+      document.getElementById("logoutBtn").addEventListener("click", () => {
+        localStorage.removeItem("token");
+        window.location.href = "/login.html";
+      });
+
+      // Initial load
+      fetchCharities("pending");
+    </script>
+  </body>
+</html>

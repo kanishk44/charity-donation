@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Charity Dashboard - Impact Reports</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+      <div class="container">
+        <a class="navbar-brand" href="/charity-dashboard.html"
+          >Charity Dashboard</a
+        >
+        <button class="btn btn-light" id="logoutBtn">Logout</button>
+      </div>
+    </nav>
+
+    <div class="container mt-4">
+      <div class="row">
+        <div class="col-md-8">
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">Create Impact Report</h5>
+              <form id="impactReportForm">
+                <div class="mb-3">
+                  <label for="title" class="form-label">Report Title</label>
+                  <input type="text" class="form-control" id="title" required />
+                </div>
+                <div class="mb-3">
+                  <label for="period" class="form-label">Period</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="period"
+                    placeholder="e.g., Q1 2024"
+                    required
+                  />
+                </div>
+                <div class="mb-3">
+                  <label for="description" class="form-label"
+                    >Description</label
+                  >
+                  <textarea
+                    class="form-control"
+                    id="description"
+                    rows="4"
+                    required
+                  ></textarea>
+                </div>
+                <div class="mb-3">
+                  <label for="beneficiariesCount" class="form-label"
+                    >Number of Beneficiaries</label
+                  >
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="beneficiariesCount"
+                    required
+                  />
+                </div>
+                <div class="mb-3">
+                  <label for="achievements" class="form-label"
+                    >Key Achievements</label
+                  >
+                  <textarea
+                    class="form-control"
+                    id="achievements"
+                    rows="3"
+                    placeholder="Enter achievements separated by new lines"
+                  ></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                  Submit Report
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div class="card mt-4">
+            <div class="card-body">
+              <h5 class="card-title">Previous Impact Reports</h5>
+              <div id="reportsList"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const token = localStorage.getItem("charityToken");
+      if (!token) {
+        window.location.href = "/charity-login.html";
+      }
+
+      // Submit impact report
+      document
+        .getElementById("impactReportForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          try {
+            const achievements = document
+              .getElementById("achievements")
+              .value.split("\n")
+              .filter((item) => item.trim());
+
+            const formData = {
+              title: document.getElementById("title").value,
+              period: document.getElementById("period").value,
+              description: document.getElementById("description").value,
+              beneficiariesCount:
+                document.getElementById("beneficiariesCount").value,
+              achievements,
+            };
+
+            const response = await fetch(
+              "http://localhost:3000/api/impact-reports",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(formData),
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error("Failed to create impact report");
+            }
+
+            alert("Impact report created successfully!");
+            e.target.reset();
+            fetchReports();
+          } catch (error) {
+            alert(error.message);
+          }
+        });
+
+      // Fetch and display previous reports
+      async function fetchReports() {
+        try {
+          const response = await fetch(
+            `http://localhost:3000/api/impact-reports/charity/${charityId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch reports");
+          }
+
+          const reports = await response.json();
+          displayReports(reports);
+        } catch (error) {
+          alert(error.message);
+        }
+      }
+
+      function displayReports(reports) {
+        const reportsList = document.getElementById("reportsList");
+        reportsList.innerHTML = "";
+
+        reports.forEach((report) => {
+          const reportCard = document.createElement("div");
+          reportCard.className = "card mb-3";
+          reportCard.innerHTML = `
+            <div class="card-body">
+              <h6 class="card-title">${report.title}</h6>
+              <p class="text-muted">Period: ${report.period}</p>
+              <p>${report.description}</p>
+              <p><strong>Beneficiaries:</strong> ${
+                report.beneficiariesCount
+              }</p>
+              ${
+                report.achievements?.length
+                  ? `<div class="mt-2">
+                      <strong>Key Achievements:</strong>
+                      <ul>
+                        ${report.achievements
+                          .map((a) => `<li>${a}</li>`)
+                          .join("")}
+                      </ul>
+                    </div>`
+                  : ""
+              }
+            </div>
+          `;
+          reportsList.appendChild(reportCard);
+        });
+      }
+
+      // Initial load
+      fetchReports();
+
+      // Logout
+      document.getElementById("logoutBtn").addEventListener("click", () => {
+        localStorage.removeItem("charityToken");
+        window.location.href = "/charity-login.html";
+      });
+    </script>
+  </body>
+</html>
