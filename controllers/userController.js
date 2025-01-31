@@ -28,12 +28,10 @@ exports.updateProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Update name if provided
     if (name) {
       user.name = name;
     }
 
-    // Update email if provided
     if (email && email !== user.email) {
       const existingUser = await User.findOne({ where: { email } });
       if (existingUser) {
@@ -42,7 +40,6 @@ exports.updateProfile = async (req, res) => {
       user.email = email;
     }
 
-    // Update password if provided
     if (currentPassword && newPassword) {
       const isValidPassword = await user.validatePassword(currentPassword);
       if (!isValidPassword) {

@@ -83,10 +83,6 @@ Charity.beforeCreate(async (charity) => {
 
 // Add password validation method
 Charity.prototype.validatePassword = async function (password) {
-  console.log("Validation method called with:", {
-    inputPassword: password,
-    storedHash: this.password,
-  });
   return bcrypt.compare(password, this.password);
 };
 

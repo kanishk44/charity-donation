@@ -98,35 +98,19 @@ exports.charityLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    console.log("Attempting charity login for:", email); // Debug log
     const charity = await Charity.findOne({ where: { email } });
     if (!charity) {
-      console.log("Charity not found"); // Debug log
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    console.log("Found charity:", {
-      id: charity.id,
-      email: charity.email,
-      hasPassword: !!charity.password,
-      passwordLength: charity.password?.length,
-    });
-
     if (charity.status !== "approved") {
-      console.log("Charity not approved:", charity.status); // Debug log
       return res.status(403).json({
         message:
           "Your charity account is pending approval or has been rejected",
       });
     }
 
-    // Validate password
-    console.log("Attempting to validate password:", {
-      providedPassword: password,
-      storedPasswordHash: charity.password,
-    });
     const isValidPassword = await charity.validatePassword(password);
-    console.log("Password validation result:", isValidPassword); // Debug log
 
     if (!isValidPassword) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -148,7 +132,6 @@ exports.charityLogin = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Charity login error:", error); // Debug log
     res
       .status(500)
       .json({ message: "Error during login", error: error.message });

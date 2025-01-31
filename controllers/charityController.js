@@ -57,7 +57,6 @@ exports.register = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Charity registration error:", error);
     res
       .status(500)
       .json({ message: "Error registering charity", error: error.message });
