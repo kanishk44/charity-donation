@@ -6,7 +6,7 @@ const mailerSend = new MailerSend({
 });
 
 const defaultSender = new Sender(
-  "noreply@kanishkcodes.biz",
+  "charity-donation@kanishkcodes.tech",
   "Charity Donation Platform"
 );
 
